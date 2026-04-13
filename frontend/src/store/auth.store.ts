@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { api } from '@/lib/api'
+import { supabase } from '@/lib/supabase/client'
 
 interface User {
   id: string
@@ -16,6 +16,7 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   isLoading: boolean
+  isInitialized: boolean
   login: (email: string, password: string) => Promise<void>
   register: (data: any) => Promise<void>
   logout: () => Promise<void>
@@ -29,45 +30,118 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isLoading: false,
+      isInitialized: false,
 
       login: async (email, password) => {
         set({ isLoading: true })
         try {
-          const { data } = await api.post('/users/login', { email, password })
-          localStorage.setItem('access_token', data.accessToken)
-          localStorage.setItem('refresh_token', data.refreshToken)
-          set({ user: data.user, accessToken: data.accessToken, refreshToken: data.refreshToken })
+          const { error } = await supabase.auth.signInWithPassword({ email, password })
+          if (error) throw error
+          await get().loadUser()
         } finally {
           set({ isLoading: false })
         }
       },
 
       register: async (formData) => {
-        const { data } = await api.post('/users/register', formData)
-        localStorage.setItem('access_token', data.accessToken)
-        set({ user: data.user, accessToken: data.accessToken })
+        set({ isLoading: true })
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+              data: {
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+              },
+            },
+          })
+          if (error) throw error
+
+          if (data.user) {
+            await supabase.from('users').upsert({
+              id: data.user.id,
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              role: 'customer',
+            })
+          }
+
+          await get().loadUser()
+        } finally {
+          set({ isLoading: false })
+        }
       },
 
       logout: async () => {
-        try { await api.post('/users/logout') } catch {}
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        await supabase.auth.signOut()
         set({ user: null, accessToken: null, refreshToken: null })
       },
 
       loadUser: async () => {
-        if (!get().accessToken) return
+        set({ isLoading: true })
         try {
-          const { data } = await api.get('/users/me')
-          set({ user: data })
+          const { data: sessionData } = await supabase.auth.getSession()
+          const session = sessionData.session
+          if (!session?.user) {
+            set({ user: null, isInitialized: true })
+            return
+          }
+
+          const { data: dbUser, error } = await supabase
+            .from('users')
+            .select('id,email,first_name,last_name,avatar_url,role')
+            .eq('id', session.user.id)
+            .maybeSingle()
+
+          if (error) throw error
+
+          if (!dbUser) {
+            const fallback = {
+              id: session.user.id,
+              email: session.user.email ?? '',
+              first_name: (session.user.user_metadata?.first_name as string) ?? '',
+              last_name: (session.user.user_metadata?.last_name as string) ?? '',
+              avatar_url: null,
+              role: 'customer',
+            }
+            await supabase.from('users').upsert(fallback)
+            set({
+              user: {
+                id: fallback.id,
+                email: fallback.email,
+                firstName: fallback.first_name,
+                lastName: fallback.last_name,
+                avatarUrl: undefined,
+                role: 'customer',
+              },
+              isInitialized: true,
+            })
+            return
+          }
+
+          set({
+            user: {
+              id: dbUser.id,
+              email: dbUser.email,
+              firstName: dbUser.first_name ?? '',
+              lastName: dbUser.last_name ?? '',
+              avatarUrl: dbUser.avatar_url ?? undefined,
+              role: dbUser.role,
+            },
+            isInitialized: true,
+          })
         } catch {
-          set({ user: null })
+          set({ user: null, isInitialized: true })
+        } finally {
+          set({ isLoading: false })
         }
       },
     }),
     {
       name: 'fpv-auth',
-      partialize: s => ({ accessToken: s.accessToken, refreshToken: s.refreshToken, user: s.user }),
+      partialize: s => ({ user: s.user }),
     }
   )
 )

@@ -64,9 +64,11 @@ interface Props { children: React.ReactNode }
 
 export default function AdminLayout({ children }: Props) {
   const pathname = usePathname()
-  const { user, logout } = useAuthStore()
+  const { user, logout, isInitialized } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileSidebar, setMobileSidebar] = useState(false)
+
+  if (!isInitialized || !user) return null
 
   const Sidebar = ({ mobile = false }) => (
     <aside className={cn(

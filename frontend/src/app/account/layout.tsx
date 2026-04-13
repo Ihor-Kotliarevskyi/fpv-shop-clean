@@ -16,12 +16,14 @@ const NAV = [
 ]
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore()
+  const { user, isInitialized } = useAuthStore()
   const router = useRouter()
   const pathname = usePathname()
 
-  useEffect(() => { if (!user) router.push('/auth/login?redirect=/account') }, [user])
-  if (!user) return null
+  useEffect(() => {
+    if (isInitialized && !user) router.push('/auth/login?redirect=/account')
+  }, [isInitialized, user, router])
+  if (!isInitialized || !user) return null
 
   return (
     <div className="container mx-auto px-4 py-8">
