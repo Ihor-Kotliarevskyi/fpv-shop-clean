@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { nanoid } from 'nanoid'
 
 export class AuthService {

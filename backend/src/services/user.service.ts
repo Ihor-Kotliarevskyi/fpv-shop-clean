@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import axios from 'axios'
 
 export class UserService {

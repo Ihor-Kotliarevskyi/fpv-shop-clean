@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { ProductService } from '../services/product.service'
-import { requireAuth, requireAdmin } from '../middleware/auth'
+import { ProductService } from '../../services/product.service'
+import { requireAuth, requireAdmin } from '../../middleware/auth'
 
 const ProductFilterSchema = z.object({
   q:          z.string().optional(),

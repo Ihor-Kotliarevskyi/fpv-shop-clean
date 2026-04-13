@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { OrderService } from '../services/order.service'
-import { requireAuth, requireAdmin, optionalAuth } from '../middleware/auth'
+import { OrderService } from '../../services/order.service'
+import { requireAuth, requireAdmin, optionalAuth } from '../../middleware/auth'
 
 const CreateOrderSchema = z.object({
   // Товари
